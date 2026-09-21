@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barbearia Flow — Agendamento Online</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5;color:#171717}
+header{background:linear-gradient(135deg,#111,#333);color:white;padding:24px 18px;position:sticky;top:0;z-index:5;box-shadow:0 3px 12px #0003}
+h1{margin:0 0 5px;font-size:30px}.sub{opacity:.9}
+nav{display:flex;gap:8px;overflow:auto;margin-top:16px}nav button{border:0;border-radius:20px;padding:10px 14px;background:#ffffff22;color:white;white-space:nowrap;font-weight:bold}
+nav button.active{background:white;color:#9d160b}
+main{max-width:900px;margin:auto;padding:20px 14px 110px}.section{margin-top:25px}.section h2{font-size:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.card{background:white;border-radius:16px;padding:16px;box-shadow:0 3px 12px #5c2b1015;border:1px solid #f0ded2}
+.card h3{margin:0 0 6px}.desc{font-size:13px;color:#725b50;min-height:34px}.price{font-size:20px;font-weight:800;color:#111;margin:10px 0}
+.add{width:100%;border:0;border-radius:11px;padding:12px;background:#111;color:white;font-size:16px;font-weight:bold;cursor:pointer}.add:active{transform:scale(.98)}
+.cartbar{position:fixed;bottom:0;left:0;right:0;background:#25120c;color:white;padding:12px;display:flex;justify-content:center;z-index:10}
+.cartbar button{max-width:900px;width:100%;border:0;border-radius:12px;padding:14px;background:#ffb000;color:#271000;font-size:17px;font-weight:800}
+.modal{display:none;position:fixed;inset:0;background:#0008;z-index:20;align-items:flex-end;justify-content:center}.modal.show{display:flex}
+.sheet{background:#fff8f1;width:100%;max-width:650px;max-height:90vh;overflow:auto;border-radius:22px 22px 0 0;padding:22px}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid #ead8cc;padding:12px 0}
+.qty button{border:0;border-radius:8px;padding:7px 11px;background:#ead8cc;font-weight:bold}.qty span{padding:0 9px;font-weight:bold}
+.total{font-size:22px;font-weight:900;margin:18px 0}.actions{display:flex;gap:10px}.secondary,.pay{flex:1;padding:13px;border-radius:11px;font-weight:bold;border:0}.secondary{background:#ddd}.pay{background:#159447;color:white}
+.form input,.form select{width:100%;padding:12px;margin:6px 0 12px;border:1px solid #d9c4b7;border-radius:10px}
+.success{text-align:center;padding:25px}.pix{background:#f0e4dc;padding:15px;border-radius:12px;word-break:break-all}
+</style>
+</head>
+<body>
+<header>
+  <h1>✂️ Barbearia Flow</h1>
+  <div class="sub">Seu corte, seu estilo, seu horário.</div>
+  <nav>
+    <button class="active" onclick="scrollToId('servicos')">Serviços</button>
+    <button onclick="scrollToId('barbeiros')">Barbeiros</button>
+    <button onclick="scrollToId('horarios')">Agendar</button>
+  </nav>
+</header>
+
+<main>
+  <section class="section" id="servicos">
+    <h2>✂️ Serviços</h2>
+    <div class="grid" id="serviceGrid"></div>
+  </section>
+
+  <section class="section" id="barbeiros">
+    <h2>💈 Escolha o barbeiro</h2>
+    <div class="grid" id="barberGrid"></div>
+  </section>
+
+  <section class="section" id="horarios">
+    <h2>📅 Agende seu horário</h2>
+    <div class="card">
+      <div class="form">
+        <label>Nome</label>
+        <input id="name" placeholder="Seu nome">
+
+        <label>WhatsApp</label>
+        <input id="phone" placeholder="(11) 99999-9999" inputmode="tel">
+
+        <label>Serviço</label>
+        <select id="service"></select>
+
+        <label>Barbeiro</label>
+        <select id="barber"></select>
+
+        <label>Data</label>
+        <input id="date" type="date">
+
+        <label>Horário</label>
+        <select id="time"></select>
+      </div>
+
+      <button class="add" onclick="schedule()">Confirmar agendamento</button>
+      <div id="message" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>📱 Área do barbeiro</h2>
+    <div class="card">
+      <p>Veja seus agendamentos diretamente pelo celular.</p>
+      <button class="add" onclick="openAdmin()">Abrir painel</button>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="adminModal" onclick="if(event.target===this)closeAdmin()">
+  <div class="sheet">
+    <h2>📋 Painel — Barbearia Flow</h2>
+    <div id="appointments"></div>
+    <button class="secondary" style="width:100%;margin-top:15px" onclick="closeAdmin()">Fechar</button>
+  </div>
+</div>
+
+<script>
+const services = [
+  {name:"Corte", desc:"Corte masculino tradicional ou moderno", price:30},
+  {name:"Corte + Barba", desc:"Corte completo com acabamento de barba", price:45},
+  {name:"Barba", desc:"Barba com acabamento e contorno", price:20},
+  {name:"Corte + Sobrancelha", desc:"Corte com acabamento de sobrancelha", price:40},
+  {name:"Platinado", desc:"Descoloração e acabamento", price:90}
+];
+
+const barbers = [
+  {name:"Flow", desc:"Especialista em cortes modernos"},
+  {name:"João", desc:"Especialista em degradê e barba"},
+  {name:"Pedro", desc:"Cortes clássicos e acabamento"}
+];
+
+const times = ["09:00","09:30","10:00","10:30","11:00","11:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30"];
+
+const money = n => n.toFixed(2).replace(".",",");
+
+function render() {
+  serviceGrid.innerHTML = services.map((s,i)=>`
+    <article class="card">
+      <h3>${s.name}</h3>
+      <div class="desc">${s.desc}</div>
+      <div class="price">R$ ${money(s.price)}</div>
+      <button class="add" onclick="selectService(${i})">Escolher</button>
+    </article>`).join("");
+
+  barberGrid.innerHTML = barbers.map((b,i)=>`
+    <article class="card">
+      <h3>💈 ${b.name}</h3>
+      <div class="desc">${b.desc}</div>
+      <button class="add" onclick="selectBarber(${i})">Escolher</button>
+    </article>`).join("");
+
+  service.innerHTML = services.map((s,i)=>`<option value="${i}">${s.name} — R$ ${money(s.price)}</option>`).join("");
+  barber.innerHTML = barbers.map((b,i)=>`<option value="${i}">${b.name}</option>`).join("");
+  time.innerHTML = times.map(t=>`<option>${t}</option>`).join("");
+
+  const today = new Date().toISOString().split("T")[0];
+  date.min = today;
+  date.value = today;
+}
+render();
+
+function selectService(i) {
+  service.value = i;
+  document.getElementById("horarios").scrollIntoView({behavior:"smooth"});
+}
+
+function selectBarber(i) {
+  barber.value = i;
+  document.getElementById("horarios").scrollIntoView({behavior:"smooth"});
+}
+
+function getAppointments() {
+  return JSON.parse(localStorage.getItem("flow_appointments") || "[]");
+}
+
+function schedule() {
+  const n = name.value.trim();
+  const p = phone.value.trim();
+  const d = date.value;
+  const t = time.value;
+  const s = services[Number(service.value)];
+  const b = barbers[Number(barber.value)];
+
+  if (!n || !p || !d || !t) {
+    message.innerHTML = '<div class="pix">Preencha nome, WhatsApp, data e horário.</div>';
+    return;
+  }
+
+  const appointments = getAppointments();
+  const exists = appointments.some(a => a.date === d && a.time === t && a.barber === b.name);
+  if (exists) {
+    message.innerHTML = '<div class="pix">Esse horário já está ocupado para esse barbeiro. Escolha outro.</div>';
+    return;
+  }
+
+  appointments.push({
+    id: Date.now(),
+    name:n, phone:p, service:s.name, price:s.price,
+    barber:b.name, date:d, time:t
+  });
+  localStorage.setItem("flow_appointments", JSON.stringify(appointments));
+
+  message.innerHTML = `<div class="success">
+    <h3>✅ Horário reservado!</h3>
+    <p><b>${n}</b>, seu agendamento ficou para <b>${formatDate(d)} às ${t}</b>.</p>
+    <p>${s.name} com ${b.name} — <b>R$ ${money(s.price)}</b></p>
+  </div>`;
+
+  openAdmin();
+}
+
+function formatDate(d) {
+  return new Date(d+"T00:00:00").toLocaleDateString("pt-BR");
+}
+
+function openAdmin() {
+  const list = getAppointments().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  appointments.innerHTML = list.length ? list.map(a=>`
+    <div class="row">
+      <div>
+        <b>${a.date ? formatDate(a.date) : ""} — ${a.time}</b><br>
+        ${a.name} • ${a.service}<br>
+        Barbeiro: ${a.barber}<br>
+        WhatsApp: ${a.phone}<br>
+        <b>R$ ${money(a.price)}</b>
+      </div>
+      <button class="secondary" onclick="removeAppointment(${a.id})">Excluir</button>
+    </div>
+  `).join("") : "<p>Nenhum agendamento ainda.</p>";
+
+  document.getElementById("adminModal").classList.add("show");
+}
+
+function removeAppointment(id) {
+  localStorage.setItem("flow_appointments", JSON.stringify(getAppointments().filter(a=>a.id!==id)));
+  openAdmin();
+}
+
+function closeAdmin() {
+  document.getElementById("adminModal").classList.remove("show");
+}
+
+function scrollToId(id) {
+  document.getElementById(id).scrollIntoView({behavior:"smooth"});
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  if (event && event.target) event.target.classList.add("active");
+}
+</script>
+</body>
+</html>
